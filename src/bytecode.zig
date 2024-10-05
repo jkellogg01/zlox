@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const DynamicArray = @import("./dynamic_array.zig").DynamicArray;
 const ValueArray = @import("./value.zig").ValueArray;
 const Value = @import("./value.zig").Value;
@@ -14,13 +15,13 @@ pub const Chunk = struct {
 
     code: DynamicArray(u8),
     constants: ValueArray,
-    lines: DynamicArray(u32),
+    lines: LineInformation,
 
     pub fn init(allocator: std.mem.Allocator) Chunk {
         return .{
             .code = DynamicArray(u8).init(allocator),
             .constants = ValueArray.init(allocator),
-            .lines = DynamicArray(u32).init(allocator),
+            .lines = LineInformation.init(allocator),
         };
     }
 
@@ -38,5 +39,79 @@ pub const Chunk = struct {
     pub fn addConstant(self: *Self, constant: Value) !usize {
         try self.constants.write(constant);
         return self.constants.items.len - 1;
+    }
+};
+
+const LineInformation = struct {
+    const Self = @This();
+
+    head: ?*Node,
+    tail: ?*Node,
+    len: usize,
+    allocator: Allocator,
+
+    const Node = struct {
+        number: u32,
+        length: u32, // in bytes
+        next: ?*Node,
+    };
+
+    pub fn init(allocator: Allocator) LineInformation {
+        return .{
+            .head = null,
+            .tail = null,
+            .len = 0,
+            .allocator = allocator,
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        var curr = self.head.?;
+        while (curr.next != null) {
+            const node = curr;
+            curr = curr.next.?;
+            self.allocator.destroy(node);
+        }
+        self.allocator.destroy(curr);
+    }
+
+    pub fn write(self: *Self, line: u32) Allocator.Error!void {
+        self.len += 1;
+        if (self.tail == null) {
+            const node = try self.allocator.create(Node);
+            node.number = line;
+            node.length = 1;
+            node.next = null;
+            self.head = node;
+            self.tail = node;
+            return;
+        }
+
+        var tail = self.tail.?;
+        if (tail.number == line) {
+            tail.length += 1;
+            return;
+        }
+        const node = try self.allocator.create(Node);
+        node.number = line;
+        node.length = 1;
+        node.next = null;
+        tail.next = node;
+        tail = node;
+    }
+
+    pub fn get(self: Self, operation: usize) ?u32 {
+        if (operation >= self.len) {
+            return null;
+        }
+        var curr = self.head;
+        var offset: usize = 0;
+        while (curr != null) : (curr = curr.?.next) {
+            if (offset + curr.?.length > operation) {
+                return curr.?.number;
+            }
+            offset += curr.?.length;
+        }
+        return null;
     }
 };
