@@ -19,6 +19,11 @@ pub const Disassembler = struct {
         var offset: usize = 0;
         while (offset < self.chunk.code.items.len) {
             std.debug.print("{d:0>4} ", .{offset});
+            if (offset > 0 and self.chunk.lines.items[offset] == self.chunk.lines.items[offset - 1]) {
+                std.debug.print("   | ", .{});
+            } else {
+                std.debug.print("{d: >4} ", .{self.chunk.lines.items[offset]});
+            }
 
             const instruction: OpCode = @enumFromInt(self.chunk.code.items[offset]);
             offset = switch (instruction) {
