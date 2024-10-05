@@ -1,23 +1,38 @@
 const std = @import("std");
-const Allocator = std.mem.Allocator;
+const DynamicArray = @import("./dynamic_array.zig").DynamicArray;
+const ValueArray = @import("./value.zig").ValueArray;
+const Value = @import("./value.zig").Value;
 
 pub const OpCode = enum(u8) {
+    op_constant,
     op_return,
+    _,
 };
 
 pub const Chunk = struct {
-    code: std.ArrayList(OpCode),
+    const Self = @This();
 
-    pub fn init(allocator: Allocator) Chunk {
-        const OpCodeArrayList = std.ArrayList(OpCode);
-        return .{ .code = OpCodeArrayList.init(allocator) };
+    code: DynamicArray(u8),
+    constants: ValueArray,
+
+    pub fn init(allocator: std.mem.Allocator) Chunk {
+        return .{
+            .code = DynamicArray(u8).init(allocator),
+            .constants = ValueArray.init(allocator),
+        };
     }
 
-    pub fn deinit(self: *Chunk) void {
+    pub fn deinit(self: *Self) void {
         self.code.deinit();
+        self.constants.deinit();
     }
 
-    pub fn write(self: *Chunk, code: OpCode) Allocator.Error!void {
-        return self.code.append(code);
+    pub fn write(self: *Self, byte: u8) !void {
+        try self.code.write(byte);
+    }
+
+    pub fn addConstant(self: *Self, constant: Value) !usize {
+        try self.constants.write(constant);
+        return self.constants.items.len - 1;
     }
 };

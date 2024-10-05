@@ -1,6 +1,7 @@
 const std = @import("std");
 const bytecode = @import("./bytecode.zig");
 const OpCode = bytecode.OpCode;
+const Value = @import("./value.zig").Value;
 
 pub const Disassembler = struct {
     const Self = @This();
@@ -19,15 +20,32 @@ pub const Disassembler = struct {
         while (offset < self.chunk.code.items.len) {
             std.debug.print("{d:0>4} ", .{offset});
 
-            const instruction = self.chunk.code.items[offset];
+            const instruction: OpCode = @enumFromInt(self.chunk.code.items[offset]);
             offset = switch (instruction) {
-                OpCode.op_return => simpleInstruction("RETURN", offset),
+                .op_constant => self.constantInstruction(instruction, offset),
+                .op_return => simpleInstruction(instruction, offset),
+                else => blk: {
+                    std.debug.print("unknown opcode: {d}\n", .{instruction});
+                    break :blk offset + 1;
+                },
             };
         }
     }
+
+    fn constantInstruction(self: Self, code: OpCode, offset: usize) usize {
+        const constant = self.chunk.code.items[offset + 1];
+        std.debug.print("{s: <16} {d: >4} '", .{ @tagName(code), constant });
+        printValue(self.chunk.constants.items[constant]);
+        std.debug.print("'\n", .{});
+        return offset + 2;
+    }
+
+    fn simpleInstruction(code: OpCode, offset: usize) usize {
+        std.debug.print("{s}\n", .{@tagName(code)});
+        return offset + 1;
+    }
 };
 
-fn simpleInstruction(name: []const u8, offset: usize) usize {
-    std.debug.print("{s}\n", .{name});
-    return offset + 1;
+fn printValue(value: Value) void {
+    std.debug.print("{d}", .{value});
 }
