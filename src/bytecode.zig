@@ -66,13 +66,10 @@ const LineInformation = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        var curr = self.head.?;
-        while (curr.next != null) {
-            const node = curr;
-            curr = curr.next.?;
-            self.allocator.destroy(node);
+        var curr = self.head;
+        while (curr) |node| : (curr = node.next) {
+            defer self.allocator.destroy(node);
         }
-        self.allocator.destroy(curr);
     }
 
     pub fn write(self: *Self, line: u32) Allocator.Error!void {
@@ -106,11 +103,11 @@ const LineInformation = struct {
         }
         var curr = self.head;
         var offset: usize = 0;
-        while (curr != null) : (curr = curr.?.next) {
-            if (offset + curr.?.length > operation) {
-                return curr.?.number;
+        while (curr) |node| : (curr = node.next) {
+            if (offset + node.length > operation) {
+                return node.number;
             }
-            offset += curr.?.length;
+            offset += node.length;
         }
         return null;
     }
